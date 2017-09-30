@@ -25,7 +25,7 @@ final class SqLiteSimpleStreamStrategy implements PersistenceStrategy
     public function createSchema(string $tableName): array
     {
         $statement = <<<EOT
-CREATE TABLE `$tableName44` (
+CREATE TABLE `$tableName` (
     `no` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
     `event_id` CHAR(36) NOT NULL UNIQUE,
     `event_name` VARCHAR(100) NOT NULL,
