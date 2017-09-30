@@ -108,6 +108,10 @@ final class PdoStreamIterator implements Iterator
             $createdAt = $createdAt . '.000';
         }
 
+        if (stripos($createdAt, 'T') !== false) {
+            $createdAt = str_replace('T', ' ', $createdAt);
+        }
+
         $createdAt = DateTimeImmutable::createFromFormat(
             'Y-m-d H:i:s.u',
             $createdAt,
