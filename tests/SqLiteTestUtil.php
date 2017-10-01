@@ -17,6 +17,7 @@ use PDO;
 abstract class SqLiteTestUtil extends TestUtil
 {
 
+
     public static function getConnection(): PDO
     {
         if (! isset(self::$connection)) {

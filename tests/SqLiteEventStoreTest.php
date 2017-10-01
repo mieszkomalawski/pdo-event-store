@@ -155,6 +155,51 @@ final class SqLiteEventStoreTest extends AbstractPdoEventStoreTest
     }
 
     /**
+     * @test
+     */
+    public function it_fetches_stream_categories(): void
+    {
+        $streamNames = [];
+
+        try {
+            for ($i = 0; $i < 5; $i++) {
+                $streamNames[] = 'foo-' . $i;
+                $streamNames[] = 'bar-' . $i;
+                $streamNames[] = 'baz-' . $i;
+                $streamNames[] = 'bam-' . $i;
+                $streamNames[] = 'foobar-' . $i;
+                $streamNames[] = 'foobaz-' . $i;
+                $streamNames[] = 'foobam-' . $i;
+                $this->eventStore->create(new Stream(new StreamName('foo-' . $i), new \EmptyIterator()));
+                $this->eventStore->create(new Stream(new StreamName('bar-' . $i), new \EmptyIterator()));
+                $this->eventStore->create(new Stream(new StreamName('baz-' . $i), new \EmptyIterator()));
+                $this->eventStore->create(new Stream(new StreamName('bam-' . $i), new \EmptyIterator()));
+                $this->eventStore->create(new Stream(new StreamName('foobar-' . $i), new \EmptyIterator()));
+                $this->eventStore->create(new Stream(new StreamName('foobaz-' . $i), new \EmptyIterator()));
+                $this->eventStore->create(new Stream(new StreamName('foobam-' . $i), new \EmptyIterator()));
+            }
+
+            for ($i = 0; $i < 20; $i++) {
+                $streamName = uniqid('rand');
+                $streamNames[] = $streamName;
+                $this->eventStore->create(new Stream(new StreamName($streamName), new \EmptyIterator()));
+            }
+
+            $this->assertCount(7, $this->eventStore->fetchCategoryNames(null, 20, 0));
+            $this->assertCount(0, $this->eventStore->fetchCategoryNames(null, 20, 20));
+            $this->assertCount(3, $this->eventStore->fetchCategoryNames(null, 3, 0));
+            $this->assertCount(3, $this->eventStore->fetchCategoryNames(null, 3, 3));
+            $this->assertCount(5, $this->eventStore->fetchCategoryNames(null, 10, 2));
+
+            $this->assertCount(1, $this->eventStore->fetchCategoryNames('foo', 20, 0));
+        } finally {
+            foreach ($streamNames as $streamName) {
+                $this->eventStore->delete(new StreamName($streamName));
+            }
+        }
+    }
+
+    /**
      * @return Message[]
      */
     protected function getMultipleTestEvents(): array
