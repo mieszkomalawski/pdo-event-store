@@ -19,25 +19,27 @@ abstract class TestUtil
     /**
      * List of URL schemes from a database URL and their mappings to driver.
      */
-    private static $driverSchemeAliases = [
+    protected static $driverSchemeAliases = [
         'pdo_mysql' => 'mysql',
         'pdo_pgsql' => 'pgsql',
+        'pdo_sqlite' => 'sqlite',
     ];
 
-    private static $driverSchemeSeparators = [
+    protected static $driverSchemeSeparators = [
         'pdo_mysql' => ';',
+        'pdo_sqlite' => ';',
         'pdo_pgsql' => ' ',
     ];
 
     /**
      * @var PDO
      */
-    private static $connection;
+    protected static $connection;
 
     public static function getConnection(): PDO
     {
         if (! isset(self::$connection)) {
-            $connectionParams = self::getConnectionParams();
+            $connectionParams = static::getConnectionParams();
             $separator = self::$driverSchemeSeparators[$connectionParams['driver']];
             $dsn = self::$driverSchemeAliases[$connectionParams['driver']] . ':';
             $dsn .= 'host=' . $connectionParams['host'] . $separator;
@@ -59,7 +61,7 @@ abstract class TestUtil
 
     public static function getDatabaseName(): string
     {
-        if (! self::hasRequiredConnectionParams()) {
+        if (! static::hasRequiredConnectionParams()) {
             throw new \RuntimeException('No connection params given');
         }
 
@@ -68,7 +70,7 @@ abstract class TestUtil
 
     public static function getDatabaseDriver(): string
     {
-        if (! self::hasRequiredConnectionParams()) {
+        if (! static::hasRequiredConnectionParams()) {
             throw new \RuntimeException('No connection params given');
         }
 
@@ -77,7 +79,7 @@ abstract class TestUtil
 
     public static function getDatabaseVendor(): string
     {
-        if (! self::hasRequiredConnectionParams()) {
+        if (! static::hasRequiredConnectionParams()) {
             throw new \RuntimeException('No connection params given');
         }
 
@@ -86,11 +88,11 @@ abstract class TestUtil
 
     public static function getConnectionParams(): array
     {
-        if (! self::hasRequiredConnectionParams()) {
+        if (! static::hasRequiredConnectionParams()) {
             throw new \RuntimeException('No connection params given');
         }
 
-        return self::getSpecifiedConnectionParams();
+        return static::getSpecifiedConnectionParams();
     }
 
     public static function initDefaultDatabaseTables(PDO $connection): void
@@ -103,7 +105,7 @@ abstract class TestUtil
         $connection->exec(file_get_contents(__DIR__.'/../scripts/' . $vendor . '/02_projections_table.sql'));
     }
 
-    private static function hasRequiredConnectionParams(): bool
+    protected static function hasRequiredConnectionParams(): bool
     {
         $env = getenv();
 
@@ -119,7 +121,7 @@ abstract class TestUtil
         );
     }
 
-    private static function getSpecifiedConnectionParams(): array
+    protected static function getSpecifiedConnectionParams(): array
     {
         return [
             'driver' => getenv('DB_DRIVER'),
@@ -133,7 +135,7 @@ abstract class TestUtil
         ];
     }
 
-    private static function getCharsetValue(string $charset, string $driver): string
+    protected static function getCharsetValue(string $charset, string $driver): string
     {
         if ('pdo_pgsql' === $driver) {
             return "options='--client_encoding=$charset'";

@@ -77,7 +77,7 @@ final class SqLiteEventStore implements PdoEventStore
         string $eventStreamsTable = 'event_streams',
         bool $disableTransactionHandling = false
     ) {
-        if (! extension_loaded('pdo_mysql')) {
+        if (!extension_loaded('pdo_mysql')) {
             throw ExtensionNotLoaded::with('pdo_mysql');
         }
 
@@ -111,7 +111,7 @@ EOT;
 
         $stream = $statement->fetch(PDO::FETCH_OBJ);
 
-        if (! $stream) {
+        if (!$stream) {
             throw StreamNotFound::with($streamName);
         }
 
@@ -185,7 +185,7 @@ EOT;
             throw $exception;
         }
 
-        if (! $this->disableTransactionHandling) {
+        if (!$this->disableTransactionHandling) {
             $this->connection->beginTransaction();
             $this->duringCreate = true;
         }
@@ -193,7 +193,7 @@ EOT;
         try {
             $this->appendTo($streamName, $stream->streamEvents());
         } catch (\Throwable $e) {
-            if (! $this->disableTransactionHandling) {
+            if (!$this->disableTransactionHandling) {
                 $this->connection->rollBack();
                 $this->duringCreate = false;
             }
@@ -201,7 +201,7 @@ EOT;
             throw $e;
         }
 
-        if (! $this->disableTransactionHandling) {
+        if (!$this->disableTransactionHandling) {
             $this->connection->commit();
             $this->duringCreate = false;
         }
@@ -225,7 +225,7 @@ EOT;
 
         $sql = 'INSERT INTO ' . $tableName . ' (' . implode(', ', $columnNames) . ') VALUES ' . $allPlaces;
 
-        if (! $this->disableTransactionHandling && ! $this->connection->inTransaction()) {
+        if (!$this->disableTransactionHandling && !$this->connection->inTransaction()) {
             $this->connection->beginTransaction();
         }
 
@@ -237,7 +237,7 @@ EOT;
         }
 
         if ($statement->errorInfo()[0] === '42S02') {
-            if (! $this->disableTransactionHandling && $this->connection->inTransaction() && ! $this->duringCreate) {
+            if (!$this->disableTransactionHandling && $this->connection->inTransaction() && !$this->duringCreate) {
                 $this->connection->rollBack();
             }
 
@@ -245,7 +245,7 @@ EOT;
         }
 
         if ($statement->errorCode() === '23000') {
-            if (! $this->disableTransactionHandling && $this->connection->inTransaction() && ! $this->duringCreate) {
+            if (!$this->disableTransactionHandling && $this->connection->inTransaction() && !$this->duringCreate) {
                 $this->connection->rollBack();
             }
 
@@ -253,7 +253,7 @@ EOT;
         }
 
         if ($statement->errorCode() !== '00000') {
-            if (! $this->disableTransactionHandling && $this->connection->inTransaction() && ! $this->duringCreate) {
+            if (!$this->disableTransactionHandling && $this->connection->inTransaction() && !$this->duringCreate) {
                 $this->connection->rollBack();
             }
 
@@ -266,7 +266,7 @@ EOT;
             );
         }
 
-        if (! $this->disableTransactionHandling && $this->connection->inTransaction() && ! $this->duringCreate) {
+        if (!$this->disableTransactionHandling && $this->connection->inTransaction() && !$this->duringCreate) {
             $this->connection->commit();
         }
     }
@@ -406,14 +406,14 @@ EOT;
 
     public function delete(StreamName $streamName): void
     {
-        if (! $this->disableTransactionHandling && ! $this->connection->inTransaction()) {
+        if (!$this->disableTransactionHandling && !$this->connection->inTransaction()) {
             $this->connection->beginTransaction();
         }
 
         try {
             $this->removeStreamFromStreamsTable($streamName);
         } catch (StreamNotFound $exception) {
-            if (! $this->disableTransactionHandling && $this->connection->inTransaction()) {
+            if (!$this->disableTransactionHandling && $this->connection->inTransaction()) {
                 $this->connection->rollBack();
             }
 
@@ -437,7 +437,7 @@ EOT;
             throw RuntimeException::fromStatementErrorInfo($statement->errorInfo());
         }
 
-        if (! $this->disableTransactionHandling && $this->connection->inTransaction()) {
+        if (!$this->disableTransactionHandling && $this->connection->inTransaction()) {
             $this->connection->commit();
         }
     }
@@ -457,7 +457,7 @@ EOT;
 
         $whereCondition = implode(' AND ', $where);
 
-        if (! empty($whereCondition)) {
+        if (!empty($whereCondition)) {
             $whereCondition = 'WHERE ' . $whereCondition;
         }
 
@@ -645,7 +645,7 @@ SQL;
         $where = [];
         $values = [];
 
-        if (! $metadataMatcher) {
+        if (!$metadataMatcher) {
             return [
                 $where,
                 $values,
@@ -687,7 +687,8 @@ SQL;
 
             if ($fieldType->is(FieldType::METADATA())) {
                 if (is_bool($value)) {
-                    $where[] = "metadata->\"$.$field\" $operatorString " . var_export($value, true) . ' '. $operatorStringEnd;
+                    $where[] = "metadata->\"$.$field\" $operatorString " . var_export($value,
+                            true) . ' ' . $operatorStringEnd;
                     continue;
                 }
 
@@ -701,7 +702,7 @@ SQL;
                 $where[] = "$field $operatorString $parameterString $operatorStringEnd";
             }
 
-            $value = (array) $value;
+            $value = (array)$value;
             foreach ($value as $k => $v) {
                 $values[$parameters[$k]] = $v;
             }
@@ -745,7 +746,7 @@ EOT;
             $result = false;
         }
 
-        if (! $result) {
+        if (!$result) {
             if ($statement->errorCode() === '23000') {
                 throw StreamExistsAlready::with($stream->streamName());
             }
@@ -786,15 +787,29 @@ EOT;
         $schema = $this->persistenceStrategy->createSchema($tableName);
 
         foreach ($schema as $command) {
+            /**
+             * sqlite will return false on failure
+             */
             $statement = $this->connection->prepare($command);
-            try {
-                $result = $statement->execute();
-            } catch (PDOException $exception) {
+
+            if ($statement instanceof \PDOStatement) {
+                try {
+                    $result = $statement->execute();
+                } catch (PDOException $exception) {
+                    $result = false;
+                }
+            } else {
                 $result = false;
             }
 
-            if (! $result) {
-                throw new RuntimeException('Error during createSchemaFor: ' . implode('; ', $statement->errorInfo()));
+
+            if (!$result) {
+                if ($statement instanceof \PDOStatement) {
+                    $errorInfo = $statement->errorInfo();
+                } else {
+                    $errorInfo = [];
+                }
+                throw new RuntimeException('Error during createSchemaFor: ' . implode('; ', $errorInfo));
             }
         }
     }

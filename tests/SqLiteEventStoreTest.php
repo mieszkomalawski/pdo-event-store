@@ -22,6 +22,8 @@ use Prooph\EventStore\Pdo\Exception\RuntimeException;
 use Prooph\EventStore\Pdo\MySqlEventStore;
 use Prooph\EventStore\Pdo\PersistenceStrategy\MySqlAggregateStreamStrategy;
 use Prooph\EventStore\Pdo\PersistenceStrategy\MySqlSingleStreamStrategy;
+use Prooph\EventStore\Pdo\PersistenceStrategy\SqLiteAggregateStreamStrategy;
+use Prooph\EventStore\Pdo\PersistenceStrategy\SqLiteSingleStreamStrategy;
 use Prooph\EventStore\Pdo\SqLiteEventStore;
 use Prooph\EventStore\Stream;
 use Prooph\EventStore\StreamName;
@@ -41,17 +43,19 @@ final class SqLiteEventStoreTest extends AbstractPdoEventStoreTest
 
     protected function setUp(): void
     {
-        if (TestUtil::getDatabaseDriver() !== 'pdo_mysql') {
+        putenv('DB_DRIVER=pdo_sqlite');
+        putenv('DB=sqlite_3');
+        if (SqLiteTestUtil::getDatabaseDriver() !== 'pdo_sqlite') {
             throw new \RuntimeException('Invalid database driver');
         }
 
-        $this->connection = TestUtil::getConnection();
-        TestUtil::initDefaultDatabaseTables($this->connection);
+        $this->connection = SqLiteTestUtil::getConnection();
+        SqLiteTestUtil::initDefaultDatabaseTables($this->connection);
 
-        $this->eventStore = new MySqlEventStore(
+        $this->eventStore = new SqLiteEventStore(
             new FQCNMessageFactory(),
             $this->connection,
-            new MySqlAggregateStreamStrategy()
+            new SqLiteAggregateStreamStrategy()
         );
     }
 
@@ -63,8 +67,8 @@ final class SqLiteEventStoreTest extends AbstractPdoEventStoreTest
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Error during createSchemaFor');
 
-        $streamName = new StreamName('foo');
-        $strategy = new MySqlAggregateStreamStrategy();
+        $streamName = new StreamName('foo' . uniqid('', false));
+        $strategy = new SqLiteAggregateStreamStrategy();
         $schema = $strategy->createSchema($strategy->generateTableName($streamName));
 
         foreach ($schema as $command) {
@@ -80,14 +84,14 @@ final class SqLiteEventStoreTest extends AbstractPdoEventStoreTest
      */
     public function it_loads_correctly_using_single_stream_per_aggregate_type_strategy(): void
     {
-        $this->eventStore = new MySqlEventStore(
+        $this->eventStore = new SqLiteEventStore(
             new FQCNMessageFactory(),
             $this->connection,
-            new MySqlSingleStreamStrategy(),
+            new SqLiteSingleStreamStrategy(),
             5
         );
 
-        $streamName = new StreamName('Prooph\Model\User');
+        $streamName = new StreamName('Prooph\Model\User-' . uniqid('', true));
 
         $stream = new Stream($streamName, new ArrayIterator($this->getMultipleTestEvents()));
 
@@ -116,10 +120,10 @@ final class SqLiteEventStoreTest extends AbstractPdoEventStoreTest
     {
         $this->expectException(ConcurrencyException::class);
 
-        $this->eventStore = new MySqlEventStore(
+        $this->eventStore = new SqLiteEventStore(
             new FQCNMessageFactory(),
             $this->connection,
-            new MySqlSingleStreamStrategy()
+            new SqLiteSingleStreamStrategy()
         );
 
         $streamEvent = UserCreated::with(
@@ -156,7 +160,7 @@ final class SqLiteEventStoreTest extends AbstractPdoEventStoreTest
         $connection->commit()->shouldNotBeCalled();
         $connection->rollback()->shouldNotBeCalled();
 
-        $eventStore = new MySqlEventStore(new FQCNMessageFactory(), $connection->reveal(), new MySqlAggregateStreamStrategy());
+        $eventStore = new SqLiteEventStore(new FQCNMessageFactory(), $connection->reveal(), new SqLiteAggregateStreamStrategy());
 
         $streamEvent = UserCreated::with(
             ['name' => 'Max Mustermann', 'email' => 'contact@prooph.de'],
