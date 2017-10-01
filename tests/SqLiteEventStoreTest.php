@@ -16,6 +16,7 @@ use ArrayIterator;
 use PDO;
 use Prooph\Common\Messaging\FQCNMessageFactory;
 use Prooph\EventStore\Exception\ConcurrencyException;
+use Prooph\EventStore\Metadata\FieldType;
 use Prooph\EventStore\Metadata\MetadataMatcher;
 use Prooph\EventStore\Metadata\Operator;
 use Prooph\EventStore\Pdo\Exception\RuntimeException;
@@ -67,7 +68,7 @@ final class SqLiteEventStoreTest extends AbstractPdoEventStoreTest
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Error during createSchemaFor');
 
-        $streamName = new StreamName('foo' . uniqid('', false));
+        $streamName = new StreamName('foo');
         $strategy = new SqLiteAggregateStreamStrategy();
         $schema = $strategy->createSchema($strategy->generateTableName($streamName));
 
@@ -91,22 +92,22 @@ final class SqLiteEventStoreTest extends AbstractPdoEventStoreTest
             5
         );
 
-        $streamName = new StreamName('Prooph\Model\User-' . uniqid('', true));
+        $streamName = new StreamName('Prooph\Model\User');
 
         $stream = new Stream($streamName, new ArrayIterator($this->getMultipleTestEvents()));
 
         $this->eventStore->create($stream);
 
         $metadataMatcher = new MetadataMatcher();
-        $metadataMatcher = $metadataMatcher->withMetadataMatch('_aggregate_id', Operator::EQUALS(), 'one');
+        $metadataMatcher = $metadataMatcher->withMetadataMatch('aggregate_id', Operator::EQUALS(), 'one', FieldType::MESSAGE_PROPERTY());
         $events = iterator_to_array($this->eventStore->load($streamName, 1, null, $metadataMatcher));
-        $this->assertCount(100, $events);
+        $this->assertCount(10, $events);
         $lastUser1Event = array_pop($events);
 
         $metadataMatcher = new MetadataMatcher();
-        $metadataMatcher = $metadataMatcher->withMetadataMatch('_aggregate_id', Operator::EQUALS(), 'two');
+        $metadataMatcher = $metadataMatcher->withMetadataMatch('aggregate_id', Operator::EQUALS(), 'two', FieldType::MESSAGE_PROPERTY());
         $events = iterator_to_array($this->eventStore->load($streamName, 1, null, $metadataMatcher));
-        $this->assertCount(100, $events);
+        $this->assertCount(10, $events);
         $lastUser2Event = array_pop($events);
 
         $this->assertEquals('Sandro', $lastUser1Event->payload()['name']);
@@ -153,29 +154,33 @@ final class SqLiteEventStoreTest extends AbstractPdoEventStoreTest
         $this->eventStore->appendTo(new StreamName('Prooph\Model\User'), new ArrayIterator([$streamEvent]));
     }
 
-    public function it_ignores_transaction_handling_if_flag_is_enabled(): void
+    /**
+     * @return Message[]
+     */
+    protected function getMultipleTestEvents(): array
     {
-        $connection = $this->prophesize(PDO::class);
-        $connection->beginTransaction()->shouldNotBeCalled();
-        $connection->commit()->shouldNotBeCalled();
-        $connection->rollback()->shouldNotBeCalled();
+        $events = [];
 
-        $eventStore = new SqLiteEventStore(new FQCNMessageFactory(), $connection->reveal(), new SqLiteAggregateStreamStrategy());
+        $event = UserCreated::with(['name' => 'Alex'], 1);
+        $events[] = $event->withAddedMetadata('_aggregate_id', 'one')->withAddedMetadata('_aggregate_type', 'user');
 
-        $streamEvent = UserCreated::with(
-            ['name' => 'Max Mustermann', 'email' => 'contact@prooph.de'],
-            1
-        );
+        $event = UserCreated::with(['name' => 'Sascha'], 1);
+        $events[] = $event->withAddedMetadata('_aggregate_id', 'two')->withAddedMetadata('_aggregate_type', 'user');
 
-        $stream = new Stream(new StreamName('Prooph\Model\User'), new ArrayIterator([$streamEvent]));
+        for ($i = 2; $i < 10; $i++) {
+            $event = UsernameChanged::with(['name' => uniqid('name_')], $i);
+            $events[] = $event->withAddedMetadata('_aggregate_id', 'two')->withAddedMetadata('_aggregate_type', 'user');
 
-        $eventStore->create($stream);
+            $event = UsernameChanged::with(['name' => uniqid('name_')], $i);
+            $events[] = $event->withAddedMetadata('_aggregate_id', 'one')->withAddedMetadata('_aggregate_type', 'user');
+        }
 
-        $streamEvent = UsernameChanged::with(
-            ['name' => 'John Doe'],
-            1
-        );
+        $event = UsernameChanged::with(['name' => 'Sandro'], 100);
+        $events[] = $event->withAddedMetadata('_aggregate_id', 'one')->withAddedMetadata('_aggregate_type', 'user');
 
-        $eventStore->appendTo(new StreamName('Prooph\Model\User'), new ArrayIterator([$streamEvent]));
+        $event = UsernameChanged::with(['name' => 'Bradley'], 100);
+        $events[] = $event->withAddedMetadata('_aggregate_id', 'two')->withAddedMetadata('_aggregate_type', 'user');
+
+        return $events;
     }
 }

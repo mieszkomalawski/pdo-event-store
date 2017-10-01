@@ -99,14 +99,22 @@ WHERE real_stream_name = :streamName;
 EOT;
 
         $statement = $this->connection->prepare($sql);
-        try {
-            $statement->execute(['streamName' => $streamName->toString()]);
-        } catch (PDOException $exception) {
-            // ignore and check error code
+        if ($statement instanceof \PDOStatement) {
+            try {
+                $statement->execute(['streamName' => $streamName->toString()]);
+            } catch (PDOException $exception) {
+                // ignore and check error code
+            }
+            $errorCode = $statement->errorCode();
+            $errorInfo = $statement->errorInfo();
+        } else {
+            $errorCode = $this->connection->errorCode();
+            $errorInfo = $this->connection->errorInfo();
         }
 
-        if ($statement->errorCode() !== '00000') {
-            throw RuntimeException::fromStatementErrorInfo($statement->errorInfo());
+
+        if ($errorCode !== '00000') {
+            throw RuntimeException::fromStatementErrorInfo($errorInfo);
         }
 
         $stream = $statement->fetch(PDO::FETCH_OBJ);
@@ -129,17 +137,25 @@ WHERE real_stream_name = :streamName;
 EOT;
 
         $statement = $this->connection->prepare($sql);
-        try {
-            $statement->execute([
-                'streamName' => $streamName->toString(),
-                'metadata' => json_encode($newMetadata),
-            ]);
-        } catch (PDOException $exception) {
-            // ignore and check error code
+        if ($statement instanceof \PDOStatement) {
+            try {
+                $statement->execute([
+                    'streamName' => $streamName->toString(),
+                    'metadata' => json_encode($newMetadata),
+                ]);
+            } catch (PDOException $exception) {
+                // ignore and check error code
+            }
+            $errorCode = $statement->errorCode();
+            $errorInfo = $statement->errorInfo();
+        } else {
+            $errorCode = $this->connection->errorCode();
+            $errorInfo = $this->connection->errorInfo();
         }
 
-        if ($statement->errorCode() !== '00000') {
-            throw RuntimeException::fromStatementErrorInfo($statement->errorInfo());
+
+        if ($errorCode !== '00000') {
+            throw RuntimeException::fromStatementErrorInfo($errorInfo);
         }
 
         if (1 !== $statement->rowCount()) {
@@ -156,14 +172,22 @@ EOT;
 
         $statement = $this->connection->prepare($sql);
 
-        try {
-            $statement->execute(['streamName' => $streamName->toString()]);
-        } catch (PDOException $exception) {
-            // ignore and check error code
+        if ($statement instanceof \PDOStatement) {
+            try {
+                $statement->execute(['streamName' => $streamName->toString()]);
+            } catch (PDOException $exception) {
+                // ignore and check error code
+            }
+            $errorCode = $statement->errorCode();
+            $errorInfo = $statement->errorInfo();
+        } else {
+            $errorCode = $this->connection->errorCode();
+            $errorInfo = $this->connection->errorInfo();
         }
 
-        if ($statement->errorCode() !== '00000') {
-            throw RuntimeException::fromStatementErrorInfo($statement->errorInfo());
+
+        if ($errorCode !== '00000') {
+            throw RuntimeException::fromStatementErrorInfo($errorInfo);
         }
 
         return '1' === $statement->fetchColumn();
@@ -230,13 +254,21 @@ EOT;
         }
 
         $statement = $this->connection->prepare($sql);
-        try {
-            $statement->execute($data);
-        } catch (PDOException $exception) {
-            // ignore and check error code
+        if ($statement instanceof \PDOStatement) {
+            try {
+                $statement->execute($data);
+            } catch (PDOException $exception) {
+                // ignore and check error code
+            }
+            $errorCode = $statement->errorCode();
+            $errorInfo = $statement->errorInfo();
+        } else {
+            $errorCode = $this->connection->errorCode();
+            $errorInfo = $this->connection->errorInfo();
         }
 
-        if ($statement->errorInfo()[0] === '42S02') {
+
+        if ($errorInfo[0] === '42S02') {
             if (!$this->disableTransactionHandling && $this->connection->inTransaction() && !$this->duringCreate) {
                 $this->connection->rollBack();
             }
@@ -244,7 +276,7 @@ EOT;
             throw StreamNotFound::with($streamName);
         }
 
-        if ($statement->errorCode() === '23000') {
+        if ($errorCode === '23000') {
             if (!$this->disableTransactionHandling && $this->connection->inTransaction() && !$this->duringCreate) {
                 $this->connection->rollBack();
             }
@@ -252,7 +284,7 @@ EOT;
             throw new ConcurrencyException();
         }
 
-        if ($statement->errorCode() !== '00000') {
+        if ($errorCode !== '00000') {
             if (!$this->disableTransactionHandling && $this->connection->inTransaction() && !$this->duringCreate) {
                 $this->connection->rollBack();
             }
@@ -260,8 +292,8 @@ EOT;
             throw new RuntimeException(
                 sprintf(
                     "Error %s. Maybe the event streams table is not setup?\nError-Info: %s",
-                    $statement->errorCode(),
-                    $statement->errorInfo()[2]
+                    $errorCode,
+                    $errorInfo[2]
                 )
             );
         }
@@ -305,26 +337,32 @@ LIMIT :limit;
 EOT;
 
         $statement = $this->connection->prepare($query);
-        $statement->setFetchMode(PDO::FETCH_OBJ);
+        if ($statement instanceof \PDOStatement) {
+            $statement->setFetchMode(PDO::FETCH_OBJ);
 
-        $statement->bindValue(':fromNumber', $fromNumber, PDO::PARAM_INT);
-        $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $statement->bindValue(':fromNumber', $fromNumber, PDO::PARAM_INT);
+            $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
 
-        foreach ($values as $parameter => $value) {
-            $statement->bindValue($parameter, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            foreach ($values as $parameter => $value) {
+                $statement->bindValue($parameter, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
+
+            try {
+                $statement->execute();
+            } catch (PDOException $exception) {
+                // ignore and check error code
+            }
+            $errorCode = $statement->errorCode();
+        } else {
+            $errorCode = $this->connection->errorCode();
         }
 
-        try {
-            $statement->execute();
-        } catch (PDOException $exception) {
-            // ignore and check error code
-        }
 
-        if ($statement->errorCode() === '42S22') {
+        if ($errorCode === '42S22') {
             throw new \UnexpectedValueException('Unknown field given in metadata matcher');
         }
 
-        if ($statement->errorCode() !== '00000') {
+        if ($errorCode !== '00000') {
             throw StreamNotFound::with($streamName);
         }
 
@@ -375,22 +413,28 @@ LIMIT :limit;
 EOT;
 
         $statement = $this->connection->prepare($query);
-        $statement->setFetchMode(PDO::FETCH_OBJ);
+        if ($statement instanceof \PDOStatement) {
+            $statement->setFetchMode(PDO::FETCH_OBJ);
 
-        $statement->bindValue(':fromNumber', $fromNumber, PDO::PARAM_INT);
-        $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $statement->bindValue(':fromNumber', $fromNumber, PDO::PARAM_INT);
+            $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
 
-        foreach ($values as $parameter => $value) {
-            $statement->bindValue($parameter, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            foreach ($values as $parameter => $value) {
+                $statement->bindValue($parameter, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
+
+            try {
+                $statement->execute();
+            } catch (PDOException $exception) {
+                // ignore and check error code
+            }
+            $errorCode = $statement->errorCode();
+        } else {
+            $errorCode = $this->connection->errorCode();
         }
 
-        try {
-            $statement->execute();
-        } catch (PDOException $exception) {
-            // ignore and check error code
-        }
 
-        if ($statement->errorCode() !== '00000') {
+        if ($errorCode !== '00000') {
             throw StreamNotFound::with($streamName);
         }
 
@@ -469,16 +513,24 @@ LIMIT $offset, $limit
 SQL;
 
         $statement = $this->connection->prepare($query);
-        $statement->setFetchMode(PDO::FETCH_OBJ);
-        try {
-            $statement->execute($values);
-        } catch (PDOException $exception) {
-            // ignore and check error code
-        }
+        if ($statement instanceof \PDOStatement) {
+            $statement->setFetchMode(PDO::FETCH_OBJ);
+            try {
+                $statement->execute($values);
+            } catch (PDOException $exception) {
+                // ignore and check error code
+            }
 
-        if ($statement->errorCode() !== '00000') {
             $errorCode = $statement->errorCode();
             $errorInfo = $statement->errorInfo()[2];
+        } else {
+            $errorInfo = $this->connection->errorInfo()[2];
+            $errorCode = $this->connection->errorCode();
+        }
+
+
+        if ($errorCode !== '00000') {
+
 
             throw new RuntimeException(
                 "Error $errorCode. Maybe the event streams table is not setup?\nError-Info: $errorInfo"
@@ -507,7 +559,8 @@ SQL;
         }
         [$where, $values] = $this->createWhereClause($metadataMatcher);
 
-        $where[] = '`real_stream_name` REGEXP :filter';
+        // sqlite does not support regex
+        $where[] = '`real_stream_name` = :filter';
         $values[':filter'] = $filter;
 
         $whereCondition = 'WHERE ' . implode(' AND ', $where);
@@ -520,16 +573,22 @@ LIMIT $offset, $limit
 SQL;
 
         $statement = $this->connection->prepare($query);
-        $statement->setFetchMode(PDO::FETCH_OBJ);
-        try {
-            $statement->execute($values);
-        } catch (PDOException $exception) {
-            // ignore and check error code
-        }
-
-        if ($statement->errorCode() !== '00000') {
+        if($statement instanceof \PDOStatement){
+            $statement->setFetchMode(PDO::FETCH_OBJ);
+            try {
+                $statement->execute($values);
+            } catch (PDOException $exception) {
+                // ignore and check error code
+            }
             $errorCode = $statement->errorCode();
             $errorInfo = $statement->errorInfo()[2];
+        }else{
+            $errorCode = $statement->errorCode();
+            $errorInfo = $statement->errorInfo()[2];
+        }
+
+
+        if ($errorCode !== '00000') {
 
             throw new RuntimeException(
                 "Error $errorCode. Maybe the event streams table is not setup?\nError-Info: $errorInfo"
@@ -602,7 +661,8 @@ SQL;
 
         $values[':filter'] = $filter;
 
-        $whereCondition = 'WHERE `category` REGEXP :filter AND `category` IS NOT NULL';
+        //sqlite does not support regex
+        $whereCondition = 'WHERE `category` LIKE :filter AND `category` IS NOT NULL';
 
         $query = <<<SQL
 SELECT `category` FROM $this->eventStreamsTable
@@ -613,16 +673,22 @@ LIMIT $offset, $limit
 SQL;
 
         $statement = $this->connection->prepare($query);
-        $statement->setFetchMode(PDO::FETCH_OBJ);
-        try {
-            $statement->execute($values);
-        } catch (PDOException $exception) {
-            // ignore and check error code
-        }
-
-        if ($statement->errorCode() !== '00000') {
+        if($statement instanceof \PDOStatement){
+            $statement->setFetchMode(PDO::FETCH_OBJ);
+            try {
+                $statement->execute($values);
+            } catch (PDOException $exception) {
+                // ignore and check error code
+            }
             $errorCode = $statement->errorCode();
             $errorInfo = $statement->errorInfo()[2];
+        }else{
+            $errorCode = $this->connection->errorCode();
+            $errorInfo = $this->connection->errorInfo()[2];
+        }
+
+
+        if ($errorCode !== '00000') {
 
             throw new RuntimeException(
                 "Error $errorCode. Maybe the event streams table is not setup?\nError-Info: $errorInfo"
@@ -686,13 +752,13 @@ SQL;
             }
 
             if ($fieldType->is(FieldType::METADATA())) {
-                if (is_bool($value)) {
-                    $where[] = "metadata->\"$.$field\" $operatorString " . var_export($value,
-                            true) . ' ' . $operatorStringEnd;
-                    continue;
-                }
+                /* if (is_bool($value)) {
+                     $where[] = " json_extract(metadata, '$.$field') $operatorString " . var_export($value,
+                             true) . ' ' . $operatorStringEnd;
+                     continue;
+                 }
 
-                $where[] = "metadata->>\"$.$field\" $operatorString $parameterString $operatorStringEnd";
+                 $where[] = " json_extract(metadata, '$.$field') $operatorString $parameterString $operatorStringEnd";*/
             } else {
                 if (is_bool($value)) {
                     $where[] = "$field $operatorString " . var_export($value, true) . ' ' . $operatorStringEnd;
@@ -735,24 +801,32 @@ VALUES (:realStreamName, :streamName, :metadata, :category);
 EOT;
 
         $statement = $this->connection->prepare($sql);
-        try {
-            $result = $statement->execute([
-                ':realStreamName' => $realStreamName,
-                ':streamName' => $streamName,
-                ':metadata' => $metadata,
-                ':category' => $category,
-            ]);
-        } catch (PDOException $exception) {
-            $result = false;
-        }
-
-        if (!$result) {
-            if ($statement->errorCode() === '23000') {
-                throw StreamExistsAlready::with($stream->streamName());
+        if ($statement instanceof \PDOStatement) {
+            try {
+                $result = $statement->execute([
+                    ':realStreamName' => $realStreamName,
+                    ':streamName' => $streamName,
+                    ':metadata' => $metadata,
+                    ':category' => $category,
+                ]);
+            } catch (PDOException $exception) {
+                $result = false;
             }
 
             $errorCode = $statement->errorCode();
             $errorInfo = $statement->errorInfo()[2];
+        } else {
+            $errorCode = $this->connection->errorCode();
+            $errorInfo = $this->connection->errorInfo()[2];
+            $result = false;
+        }
+
+
+        if (!$result) {
+            if ($errorCode === '23000') {
+                throw StreamExistsAlready::with($stream->streamName());
+            }
+
 
             throw new RuntimeException(
                 "Error $errorCode. Maybe the event streams table is not setup?\nError-Info: $errorInfo"
@@ -798,17 +872,14 @@ EOT;
                 } catch (PDOException $exception) {
                     $result = false;
                 }
+                $errorInfo = $statement->errorInfo();
             } else {
                 $result = false;
+                $errorInfo = $this->connection->errorInfo();
             }
 
 
             if (!$result) {
-                if ($statement instanceof \PDOStatement) {
-                    $errorInfo = $statement->errorInfo();
-                } else {
-                    $errorInfo = [];
-                }
                 throw new RuntimeException('Error during createSchemaFor: ' . implode('; ', $errorInfo));
             }
         }

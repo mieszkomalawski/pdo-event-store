@@ -17,7 +17,7 @@ use Prooph\EventStore\Pdo\HasQueryHint;
 use Prooph\EventStore\Pdo\PersistenceStrategy;
 use Prooph\EventStore\StreamName;
 
-final class SqLiteSingleStreamStrategy implements PersistenceStrategy, HasQueryHint
+final class SqLiteSingleStreamStrategy implements PersistenceStrategy
 {
     /**
      * @param string $tableName

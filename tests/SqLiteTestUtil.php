@@ -21,7 +21,7 @@ abstract class SqLiteTestUtil extends TestUtil
     {
         if (! isset(self::$connection)) {
             self::$connection = new PDO('sqlite:memory:', null, null, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+                //PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
                 ]);
         }
 
